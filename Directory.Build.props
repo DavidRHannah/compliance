@@ -1,0 +1,10 @@
+<Project>
+  <PropertyGroup>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Code comments feed the generated API reference. -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- Do not warn about members without comments. -->
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+</Project>
