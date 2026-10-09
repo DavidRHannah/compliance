@@ -166,12 +166,84 @@ sequenceDiagram
 ### Assessment Sequence Diagrams
 
 #### Starting run
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as consultant
+    participant API as API service 
+    participant DB as PostgreSQL
+    participant SQS as SQS Queue
+
+    User->>API: Run assessment
+    API->>DB: Check for active run
+    API->>DB: Every applicable control has a test
+    API->>DB: Create run
+    loop Each applicable control
+        API-->SQS: Queue control
+    end
+    API-->>User: 202 Accepted
+```
+
 #### Evidence search
+``` mermaid
+sequenceDiagram
+    autonumber
+    participant W as Worker service
+    participant DB as PostgreSQL
+    participant SQS as SQS Queue
+    participant BR as Bedrock embeddings 
+
+    W->>SQS: Receive control
+    W->>DB: Load context
+    W->>BR: Embed search queries
+    BR-->>W: Vectors
+    W->>DB: Vector & full-text search
+    DB-->>W: Matching chunks
+    break No matching chunks
+        W->>DB: Insufficient evidence verdict
+    end
+    W->>W: Keep relevant chunks
+```
+
 #### Preliminary verdict
+``` mermaid
+sequenceDiagram
+    autonumber
+    participant W as Worker service
+    participant DB as PostgreSQL
+    participant BR as Bedrock Claude 
+    participant SQS as SQS Queue
+
+    W->>W: Build prompt from template & context
+    W->>BR: Query LLM 
+    BR-->>W: Verdict, rationale, citations
+    W->>W: Check quotes against its chunk
+    opt Pass/Fail w/o verified citation
+        W->>W: Insufficient evidence verdict
+    end
+    W->>DB: Save assessment & citations
+    W->>DB: Supersede previous assessment
+    opt Earlier assessment had a decision
+        W->>DB: Flag for re-review
+    end
+    W->>SQS: Delete message
+```
+
 #### Run completion
+``` mermaid
+```
+
 #### Consultant review
+``` mermaid
+```
+
 #### Evidence changes
+``` mermaid
+```
+
 #### Results
+``` mermaid
+```
 
 **Rules the code keeps:**
 - All data belongs to one engagement, and every query filters by it.
