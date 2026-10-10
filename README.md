@@ -57,7 +57,7 @@ Folders are created when their first file is added.
 
 ## Architecture
 
-The backend application is a single application image that may run as two services. The first service is the Rest API service. This service provides responses to HTTP requests. The second service is the Worker service. This service handles the backend processing of files and queues.
+The backend application is a single application image that may run as two services. The first service is the REST API service. This service provides responses to HTTP requests. The second service is the Worker service. This service handles the backend processing of files and queues.
 
 ### Document Sequence Diagrams
 
@@ -96,12 +96,12 @@ sequenceDiagram
     W->>Q: Receive document
     W->>DB: Update processing status
     W->>S3: Read document
-    break engagement duplicate
+    break Engagement duplicate
         W->>DB: Flag as failed
     end 
     alt Scanned PDF
         W->>TX: Extract text
-        TX->>W: Text
+        TX-->>W: Text
     else Other file types
         W->>W: Extract text
     end
@@ -121,10 +121,9 @@ sequenceDiagram
     W->>BR: Embed chunks
     BR-->>W: Vectors
     W->>DB: Save vectors
-    DB->>W: Link chunks to scope items
+    W->>DB: Link chunks to scope items
     W->>DB: Document status -> ready
-    W->>DQ: Delete message
-    
+    W->>Q: Delete message
 ```
 
 #### Status Check
@@ -169,7 +168,7 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     autonumber
-    actor User as consultant
+    actor User as Consultant
     participant API as API service 
     participant DB as PostgreSQL
     participant SQS as SQS Queue
@@ -216,8 +215,8 @@ sequenceDiagram
 
     W->>W: Build prompt from template & context
     W->>BR: Query LLM 
-    BR-->>W: Verdict, rationale, citations
-    W->>W: Check quotes against its chunk
+    BR-->>W: Verdict, rationale, & citations
+    W->>W: Check each quote against its chunk
     opt Pass/Fail w/o verified citation
         W->>W: Insufficient evidence verdict
     end
@@ -231,19 +230,84 @@ sequenceDiagram
 
 #### Run completion
 ``` mermaid
+sequenceDiagram
+        autonumber
+        actor u as Consultant
+        participant api as API service 
+        participant w as Worker service 
+        participant db as PostgreSQL
+        participant q as SQS queue
+        participant dlq as Dead-letter queue
+
+        alt Every control assessed
+            w->>db: Run marked completed
+        else Control fails three times
+            q->>dlq: Move message
+            w->>db: Mark run failed
+        end
+
+        opt Run failed
+            u->>api: Resume run
+            api->>db: Find controls w/o verdict
+            api->>q: Queue those controls
+        end
 ```
 
 #### Consultant review
 ``` mermaid
+sequenceDiagram
+    autonumber
+    actor u as Consultant
+    participant api as API service
+    participant db as PostgreSQL
+    participant s3 as S3 bucket
+
+    u->>api: List active assessments
+    api-->>u: Verdicts & review flags
+    u->>api: Open an assessment
+    api->>db: Read rationale & citations
+    api-->>u: Assessment w/cited passages
+    opt View source document
+        u->>api: Request download link
+        api-->>u: Download link
+        u->>s3: Open document 
+    end
+    u->>api: Accept or override (w/note)
+    api->>db: Save decision w/metadata
+    api->>db: Update review flags
 ```
 
 #### Evidence changes
 ``` mermaid
+sequenceDiagram
+    autonumber
+    actor u as Client
+    actor c as Consultant 
+    participant api as API service
+    participant db as PostgreSQL
+    u->>api: Delete or replace document
+    api->>db: Mark document deleted
+    api->>db: Flag assessments that cite it
+    c->>api: List current assessments
+    api-->>c: Flagged assessments w/impacting documents
 ```
 
 #### Results
 ``` mermaid
-```
+sequenceDiagram
+        autonumber
+        actor u as Client
+        actor c as Consultant
+        participant api as API service
+        participant db as PostgreSQL
+
+        u->>api: Get results
+        api->>db: Read consultant decisions
+        api-->>u: Final verdict per control or pending
+        c->>api: Export results
+        api->>db: Read verdicts, decisions, & controls
+        api-->>c: XLSX file
+``` 
 
 **Rules the code keeps:**
 - All data belongs to one engagement, and every query filters by it.
