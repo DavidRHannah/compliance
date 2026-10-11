@@ -414,7 +414,7 @@ sequenceDiagram
         participant api as API service
         participant db as PostgreSQL
         participant qu as SQS queue
-        u->>api: Add/Edit scope item (name, type, alias)
+        u->>api: Add/Edit scope item (name, type, aliases)
         api->>db: Save scope item
         api->>qu: Queue re-link for the engagement
         api-->>u: 200 OK
@@ -433,13 +433,15 @@ sequenceDiagram
         actor c as Consultant
         participant api as API service
         participant db as PostgreSQL
-        c->>api: Save orgagnization profile
+        c->>api: Save organization profile
         api->>db: Update engagement
+        api-->>c: 200 OK
         c->>api: Mark control not applicable
         break No justification given
             api-->>c: 400 Bad Request
         end
         api->>db: Save applicability & justification
+        api-->>c: 200 OK
         c->>api: Save implementation statement
         api->>db: Update engagement control
         api-->>c: 200 OK
@@ -460,9 +462,7 @@ sequenceDiagram
         api->>db: Load engagement
         break Engagement is closed
             api-->>u: 409 Conflict
-        end
-         
-        
+        end        
 ```
 
 
