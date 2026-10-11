@@ -307,7 +307,87 @@ sequenceDiagram
         c->>api: Export results
         api->>db: Read verdicts, decisions, & controls
         api-->>c: XLSX file
-``` 
+```
+
+### Access Management
+
+#### Inviting a User
+``` mermaid
+sequenceDiagram
+    autonumber
+    actor a as Admin
+    participant api as API service
+    participant auth as Cognito
+    participant db as PostgreSQL
+    actor i as Invitee
+
+    a->>api: Invite user (email, role, client)
+    api->>auth: Create user
+    auth-->>api: User ID
+    api->>db: Create user (role, client, user ID)
+    auth->>i: Email w/temporary password
+    api-->>a: 201 Created
+```
+
+#### Sign In
+``` mermaid
+sequenceDiagram
+        autonumber
+        actor u as User
+        participant auth as Cognito
+        u->>auth: Email & password
+        alt First sign-in
+            auth-->>u: Set new password
+            u->>auth: New password
+            auth-->>u: QR code authenticator setup
+            u->>auth: Authenticator code
+        else Returning user
+            auth-->>u: Ask for MFA code
+            u->>auth: MFA code
+        end
+        auth-->>u: Tokens (ID, Access, Refresh)
+```
+
+#### Authenticated Requests
+``` mermaid
+sequenceDiagram
+    autonumber
+    actor u as User
+    participant api as API service
+    participant db as PostgreSQL
+    u->>api: Request w/access token
+    api->>api: Validate token
+    break Missing, invalid, or expired token
+        api-->>u: 401 Unauthorized
+    end
+    api->>db: Find user by token subject
+    break No matching user
+        api-->>u: 401 Unauthorized
+    end
+    api->>api: Attach role & client to request
+```
+
+#### Engagement Access
+``` mermaid
+sequenceDiagram
+    autonumber
+    actor u as User
+    participant api as API service
+    participant db as PostgreSQL
+    u->>api: Request an engagement
+    api->>db: Load engagement
+    break Not found, or another client's engagement
+        api-->>u: 404 Not Found
+    end
+    break Role not allowed on this route
+        api-->>u: 403 Forbidden
+    end
+    api->>api: Run handler w/engagement ID
+    api-->>u: Response
+    
+```
+
+### Engagement Setup
 
 **Rules the code keeps:**
 - All data belongs to one engagement, and every query filters by it.
