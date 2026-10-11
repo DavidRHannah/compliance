@@ -59,7 +59,7 @@ Folders are created when their first file is added.
 
 The backend application is a single application image that may run as two services. The first service is the REST API service. This service provides responses to HTTP requests. The second service is the Worker service. This service handles the backend processing of files and queues.
 
-### Document Sequence Diagrams
+### Document Diagrams
 
 #### Upload
 
@@ -162,7 +162,7 @@ sequenceDiagram
     Q->>DLQ: Move message
 ```
 
-### Assessment Sequence Diagrams
+### Assessment Diagrams
 
 #### Starting run
 ```mermaid
@@ -309,9 +309,9 @@ sequenceDiagram
         api-->>c: XLSX file
 ```
 
-### Access Management
+### Access Management Diagrams
 
-#### Inviting a User
+#### Inviting a user
 ``` mermaid
 sequenceDiagram
     autonumber
@@ -329,7 +329,7 @@ sequenceDiagram
     api-->>a: 201 Created
 ```
 
-#### Sign In
+#### Sign in
 ``` mermaid
 sequenceDiagram
         autonumber
@@ -348,7 +348,7 @@ sequenceDiagram
         auth-->>u: Tokens (ID, Access, Refresh)
 ```
 
-#### Authenticated Requests
+#### Authenticated requests
 ``` mermaid
 sequenceDiagram
     autonumber
@@ -367,7 +367,7 @@ sequenceDiagram
     api->>api: Attach role & client to request
 ```
 
-#### Engagement Access
+#### Engagement access
 ``` mermaid
 sequenceDiagram
     autonumber
@@ -387,7 +387,84 @@ sequenceDiagram
     
 ```
 
-### Engagement Setup
+### Engagement Setup Diagrams
+
+#### Creating client & engagement
+```mermaid
+sequenceDiagram
+        autonumber
+        actor a as Admin
+        actor c as Consultant
+        participant api as API service
+        participant db as PostgreSQL
+        a->>api: Create client
+        api->>db: Save client
+        api-->>a: 201 Created
+        c->>api: Create engagement for client
+        api->>db: Save engagement
+        api->>db: Mark all controls applicable
+        api-->>c: 201 Created
+```
+
+#### Scope items
+```mermaid
+sequenceDiagram
+        autonumber
+        actor u as User
+        participant api as API service
+        participant db as PostgreSQL
+        participant qu as SQS queue
+        u->>api: Add/Edit scope item (name, type, alias)
+        api->>db: Save scope item
+        api->>qu: Queue re-link for the engagement
+        api-->>u: 200 OK
+        u->>api: Delete scope item
+        break An assessment refers to it
+            api-->>u: 409 Conflict
+        end
+        api->>db: Delete scope item
+        api-->>u: 204 No Content
+```
+
+#### Applicability & context
+```mermaid
+sequenceDiagram
+        autonumber
+        actor c as Consultant
+        participant api as API service
+        participant db as PostgreSQL
+        c->>api: Save orgagnization profile
+        api->>db: Update engagement
+        c->>api: Mark control not applicable
+        break No justification given
+            api-->>c: 400 Bad Request
+        end
+        api->>db: Save applicability & justification
+        c->>api: Save implementation statement
+        api->>db: Update engagement control
+        api-->>c: 200 OK
+```
+
+#### Engagement state
+```mermaid
+sequenceDiagram
+        autonumber
+        actor c as Consultant
+        actor u as User
+        participant api as API service
+        participant db as PostgreSQL
+        c->>api: Change state (Draft, Active, Closed)
+        api->>db: Save state
+        api-->>c: 200 OK
+        u->>api: Change anything in closed engagement
+        api->>db: Load engagement
+        break Engagement is closed
+            api-->>u: 409 Conflict
+        end
+         
+        
+```
+
 
 **Rules the code keeps:**
 - All data belongs to one engagement, and every query filters by it.
