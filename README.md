@@ -70,7 +70,7 @@ sequenceDiagram
     participant API as API service
     participant DB as PostgreSQL
     participant S3 as S3 bucket
-    participant Q as SQS queue
+    participant Q as Document queue
 
     User->>API: Request upload link
     API->>DB: Create document
@@ -91,7 +91,7 @@ sequenceDiagram
     participant TX as Textract
     participant DB as PostgreSQL
     participant S3 as S3 bucket
-    participant Q as SQS queue
+    participant Q as Document queue
 
     W->>Q: Receive document
     W->>DB: Update processing status
@@ -115,7 +115,7 @@ sequenceDiagram
     participant W as Worker service
     participant DB as PostgreSQL
     participant BR as Bedrock embeddings 
-    participant Q as SQS queue
+    participant Q as Document queue
 
     W->>DB: Save chunks
     W->>BR: Embed chunks
@@ -145,10 +145,10 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     autonumber
-    participant Q as SQS queue
+    participant Q as Document queue
     participant W as Worker service
     participant DB as PostgreSQL
-    participant DLQ as Dead-letter queue
+    participant DLQ as Document DLQ
 
     loop Up to three attempts
         Q->>W: Deliver document 
@@ -171,7 +171,7 @@ sequenceDiagram
     actor User as Consultant
     participant API as API service 
     participant DB as PostgreSQL
-    participant SQS as SQS Queue
+    participant SQS as Assessment queue
 
     User->>API: Run assessment
     API->>DB: Check for active run
@@ -189,7 +189,7 @@ sequenceDiagram
     autonumber
     participant W as Worker service
     participant DB as PostgreSQL
-    participant SQS as SQS Queue
+    participant SQS as Assessment queue
     participant BR as Bedrock embeddings 
 
     W->>SQS: Receive control
@@ -211,7 +211,7 @@ sequenceDiagram
     participant W as Worker service
     participant DB as PostgreSQL
     participant BR as Bedrock Claude 
-    participant SQS as SQS Queue
+    participant SQS as Assessment queue
 
     W->>W: Build prompt from template & context
     W->>BR: Query LLM 
@@ -236,8 +236,8 @@ sequenceDiagram
         participant api as API service 
         participant w as Worker service 
         participant db as PostgreSQL
-        participant q as SQS queue
-        participant dlq as Dead-letter queue
+        participant q as Assessment queue
+        participant dlq as Assessment DLQ
 
         alt Every control assessed
             w->>db: Run marked completed
@@ -413,7 +413,7 @@ sequenceDiagram
         actor u as User
         participant api as API service
         participant db as PostgreSQL
-        participant qu as SQS queue
+        participant qu as Document queue
         u->>api: Add/Edit scope item (name, type, aliases)
         api->>db: Save scope item
         api->>qu: Queue re-link for the engagement
