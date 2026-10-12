@@ -46,3 +46,8 @@ One entry per hard-to-reverse choice: the date, the choice, and the reason. Newe
 - Date: 2026-10-06
 - Choice: Each requirement's ID and text is written once, in a `[Requirement]` attribute on the test that proves it. The requirements page is generated.
 - Reason: One home for each requirement, and the page cannot claim what the code does not do.
+
+## 10. Reverse part of Decision #6, Prompt in Three Layers
+- Date: 2026-10-11
+- Choice: Engagement context in prompts is scope items only. 
+- Reason: No organization profile or implementation statements, because they describe the company or the client’s claims, not evidence for the assessed scope

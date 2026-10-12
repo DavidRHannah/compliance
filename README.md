@@ -193,7 +193,7 @@ sequenceDiagram
     participant BR as Bedrock embeddings 
 
     W->>SQS: Receive control
-    W->>DB: Load context
+    W->>DB: Load control text, criteria, & scope items
     W->>BR: Embed search queries
     BR-->>W: Vectors
     W->>DB: Vector & full-text search
@@ -426,24 +426,18 @@ sequenceDiagram
         api-->>u: 204 No Content
 ```
 
-#### Applicability & context
+#### Applicability
 ```mermaid
 sequenceDiagram
         autonumber
         actor c as Consultant
         participant api as API service
         participant db as PostgreSQL
-        c->>api: Save organization profile
-        api->>db: Update engagement
-        api-->>c: 200 OK
         c->>api: Mark control not applicable
         break No justification given
             api-->>c: 400 Bad Request
         end
         api->>db: Save applicability & justification
-        api-->>c: 200 OK
-        c->>api: Save implementation statement
-        api->>db: Update engagement control
         api-->>c: 200 OK
 ```
 
@@ -465,6 +459,45 @@ sequenceDiagram
         end        
 ```
 
+### Framework Management
+
+#### Assessment Criteria
+```mermaid
+sequenceDiagram
+        autonumber
+        actor a as Admin
+        participant api as API service
+        participant db as PostgreSQL
+        a->>api: Add criteria version for control
+        break Required fields missing
+            api-->>a: 400 Bad Request
+        end
+        api->>db: Save version (inactive)
+        api-->>a: 201 Created
+        a->>api: Activate version
+        critical Single transaction
+            api->>db: Deactivate current version
+            api->>db: Activate new version
+        end
+        api-->>a: 200 OK
+```
+
+### Miscellaneous Diagrams
+
+#### Assessment Scope Influence Mindmap
+```mermaid
+mindmap
+  root((Assessment))
+    App Scope
+        Control Text
+        Prompt Template
+        Verdict Rules
+    Firm Scope
+        Assessment Criteria
+    Engagement Scope
+        Scope Items
+        Evidence
+```
 
 **Rules the code keeps:**
 - All data belongs to one engagement, and every query filters by it.
