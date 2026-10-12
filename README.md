@@ -57,7 +57,7 @@ Folders are created when their first file is added.
 
 ## Architecture
 
-The backend application is a single application image that may run as two services. The first service is the REST API service. This service provides responses to HTTP requests. The second service is the Worker service. This service handles the backend processing of files and queues.
+The backend application is a single application image that may run as 3 services. The first service is the REST API service. This service provides responses to HTTP requests. The second service is the Worker service. This service handles the backend processing of files and queues. The third service is the One-Off service. This service handles one-off tasks like migration or import tasks.
 
 ### Document Diagrams
 
@@ -175,16 +175,16 @@ sequenceDiagram
 
     User->>API: Run assessment
     API->>DB: Check for active run
-    API->>DB: Every applicable control has a test
+    API->>DB: Every applicable control has criteria
     API->>DB: Create run
     loop Each applicable control
-        API-->SQS: Queue control
+        API->>SQS: Queue control
     end
     API-->>User: 202 Accepted
 ```
 
 #### Evidence search
-``` mermaid
+```mermaid
 sequenceDiagram
     autonumber
     participant W as Worker service
@@ -205,7 +205,7 @@ sequenceDiagram
 ```
 
 #### Preliminary verdict
-``` mermaid
+```mermaid
 sequenceDiagram
     autonumber
     participant W as Worker service
@@ -229,7 +229,7 @@ sequenceDiagram
 ```
 
 #### Run completion
-``` mermaid
+```mermaid
 sequenceDiagram
         autonumber
         actor u as Consultant
@@ -254,7 +254,7 @@ sequenceDiagram
 ```
 
 #### Consultant review
-``` mermaid
+```mermaid
 sequenceDiagram
     autonumber
     actor u as Consultant
@@ -278,10 +278,10 @@ sequenceDiagram
 ```
 
 #### Evidence changes
-``` mermaid
+```mermaid
 sequenceDiagram
     autonumber
-    actor u as Client
+    actor u as User
     actor c as Consultant 
     participant api as API service
     participant db as PostgreSQL
@@ -293,7 +293,7 @@ sequenceDiagram
 ```
 
 #### Results
-``` mermaid
+```mermaid
 sequenceDiagram
         autonumber
         actor u as Client
@@ -312,7 +312,7 @@ sequenceDiagram
 ### Access Management Diagrams
 
 #### Inviting a user
-``` mermaid
+```mermaid
 sequenceDiagram
     autonumber
     actor a as Admin
@@ -330,7 +330,7 @@ sequenceDiagram
 ```
 
 #### Sign in
-``` mermaid
+```mermaid
 sequenceDiagram
         autonumber
         actor u as User
@@ -349,7 +349,7 @@ sequenceDiagram
 ```
 
 #### Authenticated requests
-``` mermaid
+```mermaid
 sequenceDiagram
     autonumber
     actor u as User
@@ -368,7 +368,7 @@ sequenceDiagram
 ```
 
 #### Engagement access
-``` mermaid
+```mermaid
 sequenceDiagram
     autonumber
     actor u as User
@@ -461,7 +461,7 @@ sequenceDiagram
 
 ### Framework Management
 
-#### Assessment Criteria
+#### Assessment criteria
 ```mermaid
 sequenceDiagram
         autonumber
@@ -482,9 +482,85 @@ sequenceDiagram
         api-->>a: 200 OK
 ```
 
+### Deployment Diagrams
+
+#### Prompt template change
+```mermaid
+sequenceDiagram
+        autonumber
+        actor dev as Developer
+        participant ci as CI pipeline
+        participant ws as Worker service
+
+        dev->>dev: Add/Update template
+        dev->>ci: Open pull request w/new version active
+        ci->>ci: Build & test
+        break Tests fail
+            ci-->>dev: Failed, not merged
+        end
+        dev->>ci: Merge
+        ci->>ws: Release
+```
+
+#### Release
+```mermaid
+sequenceDiagram
+        autonumber
+        actor dev as Developer
+        participant ci as CI pipeline
+        participant ecr as ECR
+        participant mt as Migration task
+        participant ecs as ECS services
+
+        dev->>ci: Merge to main
+        ci->>ci: Build and test
+        break Build or tests fail
+            ci-->>dev: Failed w/nothing deployed
+        end
+        ci->>ecr: Push image
+        ci->>mt: Run migrations
+        break Migrations fail
+            ci-->>dev: Failed w/old version running
+        end
+        mt-->>ci: Done
+        ci->>ecs: Deploy new image
+        ecs->>ecs: Start new tasks, stop old ones once healthy
+        ci-->>dev: Deployed
+```
+
+#### Catalog import
+```mermaid
+sequenceDiagram
+        autonumber
+        actor dev as Developer
+        participant s3 as S3 bucket
+        participant it as Import task
+        participant db as PostgreSQL
+        dev->>s3: Upload standards CSV
+        dev->>it: Run import task
+        it->>s3: Read CSV
+        it->>it: Validate each row
+        break Invalid row
+            it-->>dev: Failed, no changes
+        end
+        it->>db: Insert/Update controls by reference ID
+        it-->>dev: Summary of added/updated controls
+```
+
+#### Migrations
+```mermaid
+sequenceDiagram
+        autonumber
+        participant mt as Migration task
+        participant db as PostgreSQL
+        mt->>db: Read applied migrations
+        mt->>db: Apply pending migrations
+        Note over mt: Each migration must work w/version still runnincrg
+```
+
 ### Miscellaneous Diagrams
 
-#### Assessment Scope Influence Mindmap
+#### Assessment influence
 ```mermaid
 mindmap
   root((Assessment))
