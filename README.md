@@ -59,6 +59,16 @@ Folders are created when their first file is added.
 
 The backend application is a single application image that may run as 3 services. The first service is the REST API service. This service provides responses to HTTP requests. The second service is the Worker service. This service handles the backend processing of files and queues. The third service is the One-Off service. This service handles one-off tasks like migration or import tasks.
 
+### C4 Diagrams
+
+#### System context for compliance application
+![System Context](diagrams/drawio/System_Context_for_Compliance_Application.drawio.svg)
+
+
+#### Containers for compliance application
+![Containers](diagrams/drawio/Containers_for_Compliance_Application.drawio.svg)
+
+
 ### Document Diagrams
 
 #### Upload
