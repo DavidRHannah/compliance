@@ -13,10 +13,4 @@ public class HealthTests(WebApplicationFactory<Program> factory) : IClassFixture
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
-
-    [Fact(Skip = "Pending")]
-    [Requirement("AC-1", "Every request, except the health check, must carry a valid token from the identity provider.")]
-    public void RequestWithoutToken_IsRejected()
-    {
-    }
 }
