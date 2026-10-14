@@ -121,13 +121,13 @@ public class AssessmentTests(PostgresFixture postgres)
         Assert.Single(citations, c => c.IsVerified);
         Assert.All(citations.Where(c => !c.IsVerified), c => Assert.Null(c.CharStart));
         Assert.Equal(PreliminaryVerdict.PreliminaryPass, assessment.Verdict);
-    }
 
-    // The rest of AS-6: the API does not present unverified citations. Fill in with the assessment
-    // read endpoints, then fold it into the AS-6 test above.
-    [Fact(Skip = "Pending: assessment read endpoints")]
-    public void UnverifiedCitation_IsNotPresented()
-    {
+        // The API presents only the verified citation.
+        var detail = await s.Api.GetJsonAsync($"{s.AssessmentsUrl}/{assessment.Id}");
+        var presented = Assert.Single(detail.GetProperty("citations").EnumerateArray());
+        Assert.Equal("The information security policy", presented.GetProperty("quotedText").GetString());
+        Assert.DoesNotContain("Passwords are never rotated", detail.GetRawText());
+        Assert.DoesNotContain("Backups run every night.", detail.GetRawText());
     }
 
     [Fact]

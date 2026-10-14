@@ -1,6 +1,8 @@
 ﻿using App.Data.Entities;
+using App.Integrations.Aws.Prompts;
 using App.Pipeline.Assessments;
 using App.Tests.Infrastructure;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace App.Tests;
@@ -74,10 +76,25 @@ public class QualityTests(PostgresFixture postgres)
         Assert.Single(await s.AssessmentsAsync(runId));
     }
 
-    [Fact(Skip = "Pending")]
+    [Fact]
     [Requirement("QR-7", "Every verdict can be traced to its run, model, prompt version, assessment criteria version, and cited passages.")]
-    public void Verdict_IsTraceable()
+    public async Task Verdict_IsTraceable()
     {
+        await using var s = await RunScenario.CreateAsync(postgres, controls: 1);
+        var runId = await s.StartAndAssessAsync();
+        var assessment = (await s.AssessmentsAsync(runId)).Single();
+        var criteria = await s.Db.AssessmentCriteria.AsNoTracking().SingleAsync(k => k.ControlId == assessment.ControlId);
+
+        var history = await s.Api.GetJsonAsync($"/api/engagements/{s.Engagement.Id}/controls/{assessment.ControlId}/assessments");
+        var item = Assert.Single(history.GetProperty("items").EnumerateArray());
+        Assert.Equal(runId, item.GetProperty("runId").GetGuid());
+        Assert.Equal("fake-model", item.GetProperty("modelId").GetString());
+        Assert.Equal(PromptTemplate.CurrentVersion, item.GetProperty("promptVersion").GetString());
+        Assert.Equal(criteria.Id, item.GetProperty("criteriaId").GetGuid());
+        Assert.Equal(criteria.Version, item.GetProperty("criteriaVersion").GetInt32());
+
+        var detail = await s.Api.GetJsonAsync($"{s.AssessmentsUrl}/{assessment.Id}");
+        Assert.Equal(s.Chunk.Id, Assert.Single(detail.GetProperty("citations").EnumerateArray()).GetProperty("chunkId").GetGuid());
     }
 
     [Fact(Skip = "Pending")]

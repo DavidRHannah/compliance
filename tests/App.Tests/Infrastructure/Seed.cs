@@ -266,6 +266,46 @@ public sealed class Seed(AppDbContext db)
         });
     }
 
+    public async Task<ConsultantDecision> DecisionAsync(
+        Assessment assessment, User by, FinalVerdict verdict, string? notes = null, DateTimeOffset? at = null)
+    {
+        return await AddAsync(new ConsultantDecision
+        {
+            AssessmentId = assessment.Id,
+            DecidedById = by.Id,
+            FinalVerdict = verdict,
+            Notes = notes,
+            DecidedAt = at ?? Now,
+        });
+    }
+
+    /// <summary>An open decision_superseded flag on the assessment.</summary>
+    public async Task<ReviewFlag> FlagAsync(Assessment assessment, Assessment superseded)
+    {
+        return await AddAsync(new ReviewFlag
+        {
+            AssessmentId = assessment.Id,
+            EngagementId = assessment.EngagementId,
+            Reason = ReviewFlagReason.DecisionSuperseded,
+            SupersededAssessmentId = superseded.Id,
+            CreatedAt = Now,
+        });
+    }
+
+    public async Task<EvidenceCitation> CitationAsync(Assessment assessment, DocumentChunk chunk, string quote, bool verified = true)
+    {
+        return await AddAsync(new EvidenceCitation
+        {
+            AssessmentId = assessment.Id,
+            ChunkId = chunk.Id,
+            EngagementId = assessment.EngagementId,
+            QuotedText = quote,
+            CharStart = verified ? 0 : null,
+            CharEnd = verified ? quote.Length : null,
+            IsVerified = verified,
+        });
+    }
+
     private async Task<T> AddAsync<T>(T entity) where T : class
     {
         db.Add(entity);

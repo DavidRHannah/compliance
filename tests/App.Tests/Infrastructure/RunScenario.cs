@@ -34,6 +34,14 @@ public sealed class RunScenario : IAsyncDisposable
 
     public string RunsUrl => $"/api/engagements/{Engagement.Id}/runs";
 
+    public string AssessmentsUrl => $"/api/engagements/{Engagement.Id}/assessments";
+
+    public string FlagsUrl => $"/api/engagements/{Engagement.Id}/review-flags";
+
+    public string ResultsUrl => $"/api/engagements/{Engagement.Id}/results";
+
+    public string ExportUrl => $"/api/engagements/{Engagement.Id}/export";
+
     public static async Task<RunScenario> CreateAsync(
         PostgresFixture postgres, int controls = 2, EngagementStatus status = EngagementStatus.Active, bool criteria = true)
     {

@@ -107,3 +107,8 @@ One entry per hard-to-reverse choice: the date, the choice, and the reason. Newe
 - Date: 2026-10-14
 - Choice: The instructions are the Converse system prompt and the control, criteria, scope items and evidence are the user message. Each chunk sits in its own evidence block with its ID, document name, type and upload date, and a tag inside a chunk's text is made harmless. Placeholders are filled in one pass, so text inside a value is never read as a placeholder. The model answers through one tool, and throttled calls are retried by the SDK client's adaptive retry mode.
 - Reason: Keeping document text out of the system prompt and inside delimited blocks supports the rule that document text is evidence, never an instruction (AS-13). Retries and backoff for throttling come from the SDK, so there is no retry code of our own to test.
+
+## 22. What "under review" means in results
+- Date: 2026-10-14
+- Choice: A control is under review when its latest consultant decision is on an earlier assessment and its current assessment has no decision. Clearing a flag does not end it; only a decision on the current assessment does. Results are paged by control ID like other lists, and the totals always cover the whole engagement.
+- Reason: RV-13 says the earlier verdict stays, marked under review, until a consultant decides on the new assessment. Client users see this value and the frontend depends on the response shape, so a change needs both repositories.

@@ -11,6 +11,14 @@ public static class HttpExtensions
         return document.RootElement.Clone();
     }
 
+    /// <summary>GETs the URL, asserts 200 and returns the JSON body.</summary>
+    public static async Task<JsonElement> GetJsonAsync(this HttpClient client, string url)
+    {
+        var response = await client.GetAsync(url);
+        await response.AssertStatusAsync(HttpStatusCode.OK);
+        return await response.JsonAsync();
+    }
+
     /// <summary>Asserts the status, and for a problem response returns its type.</summary>
     public static async Task<string?> AssertStatusAsync(this HttpResponseMessage response, HttpStatusCode expected)
     {
