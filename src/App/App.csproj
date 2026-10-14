@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -7,6 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="AWSSDK.BedrockRuntime" Version="4.0.101.10" />
     <PackageReference Include="AWSSDK.CognitoIdentityProvider" Version="4.0.106.2" />
     <PackageReference Include="AWSSDK.Extensions.NETCore.Setup" Version="4.0.102.3" />
     <PackageReference Include="EFCore.NamingConventions" Version="10.0.1" />
@@ -19,7 +20,13 @@
     <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" Version="10.0.13" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
     <PackageReference Include="Pgvector.EntityFrameworkCore" Version="0.3.0" />
+    <PackageReference Include="AWSSDK.SQS" Version="4.0.100.17" />
     <PackageReference Include="Scalar.AspNetCore" Version="2.17.14" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Versioned prompt templates. A changed template is a new file (decision 7). -->
+    <EmbeddedResource Include="Integrations\Aws\Prompts\*.md" />
   </ItemGroup>
 
 </Project>

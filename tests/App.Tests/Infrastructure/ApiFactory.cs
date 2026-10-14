@@ -1,4 +1,4 @@
-using System.Net.Http.Headers;
+﻿using System.Net.Http.Headers;
 using App.Data.Entities;
 using App.Integrations.Abstractions;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -15,6 +15,10 @@ public sealed class ApiFactory(PostgresFixture postgres) : WebApplicationFactory
 {
     public FakeUserDirectory Directory { get; } = new();
     public FakeQueue Queue { get; } = new();
+    public FakeEmbedder Embedder { get; } = new();
+    public FakeControlAssessor Assessor { get; } = new();
+
+    private int handled;
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -24,6 +28,7 @@ public sealed class ApiFactory(PostgresFixture postgres) : WebApplicationFactory
             ["Auth:Authority"] = TestTokens.Issuer,
             ["Auth:ClientId"] = TestTokens.ClientId,
             ["Auth:UserPoolId"] = "test-pool",
+            ["Worker:Enabled"] = "false",
         }));
 
         builder.ConfigureTestServices(services =>
@@ -39,7 +44,33 @@ public sealed class ApiFactory(PostgresFixture postgres) : WebApplicationFactory
 
             services.AddSingleton<IUserDirectory>(Directory);
             services.AddSingleton<IQueue>(Queue);
+            services.AddSingleton<IEmbedder>(Embedder);
+            services.AddSingleton<IControlAssessor>(Assessor);
         });
+    }
+
+    /// <summary>
+    /// Handles the assessment messages sent since the last call, as the worker would, one after another.
+    /// Returns the messages handled.
+    /// </summary>
+    public async Task<List<AssessControlMessage>> HandleQueuedAssessmentsAsync()
+    {
+        var messages = Queue.Assessments().Skip(handled).ToList();
+        handled += messages.Count;
+        foreach (var message in messages)
+        {
+            await HandleAsync(message);
+        }
+
+        return messages;
+    }
+
+    /// <summary>Handles one message in its own scope, as the consumer does.</summary>
+    public async Task HandleAsync(AssessControlMessage message)
+    {
+        await using var scope = Services.CreateAsyncScope();
+        await scope.ServiceProvider.GetRequiredService<App.Pipeline.Assessments.AssessControl>()
+            .HandleAsync(message, CancellationToken.None);
     }
 
     /// <summary>A client that sends a valid access token for the user.</summary>

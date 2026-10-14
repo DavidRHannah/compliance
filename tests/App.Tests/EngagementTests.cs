@@ -64,12 +64,11 @@ public class EngagementTests(PostgresFixture postgres)
             .AssertProblemAsync(HttpStatusCode.Conflict, "engagement-closed");
         await (await api.PatchAsJsonAsync(path, new { name = "Renamed" }))
             .AssertProblemAsync(HttpStatusCode.Conflict, "engagement-closed");
-    }
+        await (await api.PostAsync($"{path}/runs", null)).AssertProblemAsync(HttpStatusCode.Conflict, "engagement-closed");
 
-    // The rest of EN-2. Fill in with POST …/runs, then fold it into the EN-2 test.
-    [Fact(Skip = "Pending: runs")]
-    public void RunStart_RequiresActiveEngagement()
-    {
+        // A run starts only while the engagement is active.
+        await (await api.PostAsync($"/api/engagements/{draft.Id}/runs", null))
+            .AssertProblemAsync(HttpStatusCode.Conflict, "engagement-not-active");
     }
 
     [Fact]

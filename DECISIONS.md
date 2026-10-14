@@ -86,3 +86,24 @@ One entry per hard-to-reverse choice: the date, the choice, and the reason. Newe
 - Date: 2026-10-14
 - Choice: Inviting creates the Cognito account, then the users row with its subject. If the row cannot be saved, the account is deleted. Disable and enable change the row, call Cognito, then commit. The user pool signs in with email as the username attribute, so the Cognito username is the subject.
 - Reason: users.external_id is required, so the subject must exist first. This order keeps Cognito and the database in step without a background job.
+
+
+## 18. A run is marked failed only after every control has finished
+- Date: 2026-10-14
+- Choice: A control that fails its last attempt records failed_at and the error on its row. The run changes to failed (or completed) only when every control has an assessment or a recorded failure. The worker ignores messages for runs that are not queued or running. The sweeper fails a run with no progress for 30 minutes, so a consultant can resume it.
+- Reason: Failing the run at the first failure would let a new run start while messages of the old one are still in flight. Waiting keeps the one-active-run rule honest and lets the other controls finish, so a resume repeats only the failed ones.
+
+## 19. Evidence search details
+- Date: 2026-10-14
+- Choice: Each query runs a vector search and a full-text search, 20 chunks each. Lists are merged by reciprocal rank fusion with k = 60, ties go to the smaller ID, and the top 12 are kept. The full-text query matches any of the query's words. Only chunks of ready documents are searched. The vector search sets hnsw.iterative_scan to relaxed_order and repeats the partial index condition exactly; the ready check is a scalar subquery so the plan keeps using the index.
+- Reason: A query is a phrase, and a chunk rarely holds every word, so an all-words match would find nothing. Documents that are not ready have chunks being written, and their text is not yet evidence. A test reads the plan of the vector query.
+
+## 20. Citation matching ignores case and whitespace
+- Date: 2026-10-14
+- Choice: A quote is verified when it appears in a chunk that was sent, ignoring case and all whitespace. The offsets stored are those of the original chunk text. A citation to a chunk that was not sent is stored as unverified if the chunk belongs to the engagement, and dropped otherwise. Citations to chunks deleted before the save are dropped.
+- Reason: Models copy quotes with different line breaks and spacing. The table needs a real chunk for every citation, so an ID that names no chunk of the engagement cannot be stored. Unverified citations never leave the API.
+
+## 21. Prompt layout
+- Date: 2026-10-14
+- Choice: The instructions are the Converse system prompt and the control, criteria, scope items and evidence are the user message. Each chunk sits in its own evidence block with its ID, document name, type and upload date, and a tag inside a chunk's text is made harmless. Placeholders are filled in one pass, so text inside a value is never read as a placeholder. The model answers through one tool, and throttled calls are retried by the SDK client's adaptive retry mode.
+- Reason: Keeping document text out of the system prompt and inside delimited blocks supports the rule that document text is evidence, never an instruction (AS-13). Retries and backoff for throttling come from the SDK, so there is no retry code of our own to test.

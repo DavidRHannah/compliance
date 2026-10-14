@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using App.Integrations.Abstractions;
 
 namespace App.Tests.Infrastructure;
@@ -13,4 +13,8 @@ public sealed class FakeQueue : IQueue
         Sent.Enqueue((queue, message!));
         return Task.CompletedTask;
     }
+
+    /// <summary>The assessment messages sent so far, oldest first.</summary>
+    public List<AssessControlMessage> Assessments() =>
+        Sent.Where(s => s.Queue == Queues.Assessments).Select(s => (AssessControlMessage)s.Message).ToList();
 }

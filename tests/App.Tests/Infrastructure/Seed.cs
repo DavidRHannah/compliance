@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using App.Data;
 using App.Data.Entities;
 
@@ -138,7 +138,8 @@ public sealed class Seed(AppDbContext db)
         });
     }
 
-    public async Task<Document> DocumentAsync(Engagement engagement, User uploader)
+    public async Task<Document> DocumentAsync(
+        Engagement engagement, User uploader, DocumentStatus status = DocumentStatus.Pending, string fileName = "policy.pdf")
     {
         var id = Guid.CreateVersion7();
         return await AddAsync(new Document
@@ -146,10 +147,63 @@ public sealed class Seed(AppDbContext db)
             Id = id,
             EngagementId = engagement.Id,
             UploadedById = uploader.Id,
-            FileName = "policy.pdf",
+            FileName = fileName,
             MimeType = "application/pdf",
             SizeBytes = 1024,
             S3Key = $"engagements/{engagement.Id}/documents/{id}",
+            Status = status,
+            Error = status == DocumentStatus.Failed ? "Test failure." : null,
+            CreatedAt = Now,
+        });
+    }
+
+    /// <summary>A chunk with an embedding from <see cref="FakeEmbedder"/>, so search can find it.</summary>
+    public async Task<DocumentChunk> ChunkAsync(Document document, int index, string content)
+    {
+        return await AddAsync(new DocumentChunk
+        {
+            DocumentId = document.Id,
+            EngagementId = document.EngagementId,
+            ChunkIndex = index,
+            Locator = JsonDocument.Parse("""{"page": 1}"""),
+            Content = content,
+            TokenCount = 10,
+            Embedding = new Pgvector.Vector(FakeEmbedder.Embed(content)),
+            EmbeddingModel = FakeEmbedder.Model,
+            Chunker = "test-v1",
+        });
+    }
+
+    /// <summary>Makes the control part of the engagement, with the framework it belongs to.</summary>
+    public async Task EngagementControlAsync(Engagement engagement, Control control, bool applicable = true)
+    {
+        if (!db.EngagementFrameworks.Any(f => f.EngagementId == engagement.Id && f.FrameworkId == control.FrameworkId))
+        {
+            await AddAsync(new EngagementFramework { EngagementId = engagement.Id, FrameworkId = control.FrameworkId });
+        }
+
+        await AddAsync(new EngagementControl
+        {
+            EngagementId = engagement.Id,
+            ControlId = control.Id,
+            FrameworkId = control.FrameworkId,
+            IsApplicable = applicable,
+            Justification = applicable ? null : "Not applicable in this test.",
+        });
+    }
+
+    public async Task<AssessmentCriterion> CriteriaAsync(
+        Control control, User author, bool active = true, int version = 1, params string[] expectedEvidence)
+    {
+        return await AddAsync(new AssessmentCriterion
+        {
+            ControlId = control.Id,
+            Version = version,
+            ExpectedEvidence = expectedEvidence.Length > 0 ? [.. expectedEvidence] : ["Information security policy"],
+            PassConditions = "A current, approved policy.",
+            FailConditions = "No policy.",
+            IsActive = active,
+            CreatedById = author.Id,
             CreatedAt = Now,
         });
     }

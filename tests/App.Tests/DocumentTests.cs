@@ -1,6 +1,12 @@
+using App.Data.Entities;
+using App.Pipeline.Assessments;
+using App.Tests.Infrastructure;
+using Microsoft.EntityFrameworkCore;
+
 namespace App.Tests;
 
-public class DocumentTests
+[Collection(PostgresCollection.Name)]
+public class DocumentTests(PostgresFixture postgres)
 {
     [Fact(Skip = "Pending")]
     [Requirement("DO-1", "A user uploads a file directly to storage through a time-limited upload link. The backend does not receive the file's contents in the request.")]
@@ -44,10 +50,31 @@ public class DocumentTests
     {
     }
 
-    [Fact(Skip = "Pending")]
+    [Fact]
     [Requirement("DO-8", "A deleted or replaced document is excluded from search and from later runs.")]
-    public void DeletedDocument_IsExcludedFromSearchAndRuns()
+    public async Task DeletedDocument_IsExcludedFromSearchAndRuns()
     {
+        await using var s = await RunScenario.CreateAsync(postgres, controls: 1);
+        var queries = new[] { "information security policy" };
+        var embedder = new FakeEmbedder();
+        Task<List<Guid>> SearchAsync() => EvidenceSearch.FindAsync(s.Db, embedder, s.Engagement.Id, queries, CancellationToken.None);
+        Assert.Equal([s.Chunk.Id], await SearchAsync());
+
+        // A superseded chunk (re-chunking) is left out.
+        await s.Db.DocumentChunks.Where(c => c.Id == s.Chunk.Id).ExecuteUpdateAsync(u => u.SetProperty(c => c.SupersededAt, DateTimeOffset.UtcNow));
+        Assert.Empty(await SearchAsync());
+        await s.Db.DocumentChunks.Where(c => c.Id == s.Chunk.Id).ExecuteUpdateAsync(u => u.SetProperty(c => c.SupersededAt, (DateTimeOffset?)null));
+        Assert.Equal([s.Chunk.Id], await SearchAsync());
+
+        // A deleted or replaced document is retired with deleted_at, and a trigger hides its chunks.
+        await s.Db.Documents.Where(d => d.Id == s.Document.Id).ExecuteUpdateAsync(u => u.SetProperty(d => d.DeletedAt, DateTimeOffset.UtcNow));
+        Assert.Empty(await SearchAsync());
+
+        // A later run finds no evidence, so it does not call the model.
+        await s.StartAndAssessAsync();
+        Assert.Empty(s.Factory.Assessor.Contexts);
+        var assessment = Assert.Single(await s.Db.Assessments.AsNoTracking().Where(a => a.EngagementId == s.Engagement.Id).ToListAsync());
+        Assert.Equal(PreliminaryVerdict.InsufficientEvidence, assessment.Verdict);
     }
 
     [Fact(Skip = "Pending")]
