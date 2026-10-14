@@ -25,6 +25,18 @@ public sealed class Seed(AppDbContext db)
         return await AddAsync(user);
     }
 
+    public async Task<User> AdminAsync()
+    {
+        return await AddAsync(new User
+        {
+            ExternalId = Guid.NewGuid().ToString(),
+            Email = $"{Guid.NewGuid()}@example.test",
+            DisplayName = "Test Admin",
+            Role = UserRole.Admin,
+            CreatedAt = Now,
+        });
+    }
+
     public async Task<User> DisabledConsultantAsync()
     {
         var user = await ConsultantAsync();
@@ -56,13 +68,54 @@ public sealed class Seed(AppDbContext db)
         return await EngagementAsync(lead, await ClientAsync());
     }
 
-    public async Task<Engagement> EngagementAsync(User lead, Client client)
+    public async Task<Engagement> EngagementAsync(User lead, Client client, EngagementStatus status = EngagementStatus.Draft)
     {
         return await AddAsync(new Engagement
         {
             ClientId = client.Id,
             LeadConsultantId = lead.Id,
             Name = "Test Engagement",
+            Status = status,
+            CreatedAt = Now,
+        });
+    }
+
+    /// <summary>
+    /// The framework engagement creation attaches, with three controls. Created once and shared:
+    /// the Postgres tests run one at a time, so get-or-create is safe.
+    /// </summary>
+    public async Task<Framework> Iso27001Async()
+    {
+        var existing = db.Frameworks.SingleOrDefault(f => f.Key == "iso_27001" && f.Version == "2022");
+        if (existing is not null)
+        {
+            return existing;
+        }
+
+        var framework = await AddAsync(new Framework { Key = "iso_27001", Name = "ISO/IEC 27001", Version = "2022" });
+        foreach (var refCode in new[] { "5.1", "5.2", "8.24" })
+        {
+            await AddAsync(new Control
+            {
+                FrameworkId = framework.Id,
+                RefCode = refCode,
+                Theme = "organizational",
+                Title = $"Control {refCode}",
+                Statement = "Test statement.",
+            });
+        }
+
+        return framework;
+    }
+
+    public async Task<ScopeItem> ScopeItemAsync(Engagement engagement, User creator)
+    {
+        return await AddAsync(new ScopeItem
+        {
+            EngagementId = engagement.Id,
+            Type = ScopeItemType.System,
+            Name = $"System {Guid.NewGuid():N}",
+            CreatedById = creator.Id,
             CreatedAt = Now,
         });
     }
@@ -129,7 +182,7 @@ public sealed class Seed(AppDbContext db)
     }
 
     /// <summary>An assessment, with the criteria version and run row it needs.</summary>
-    public async Task<Assessment> AssessmentAsync(AssessmentRun run, Control control, User author)
+    public async Task<Assessment> AssessmentAsync(AssessmentRun run, Control control, User author, ScopeItem? scopeItem = null)
     {
         var criteria = await AddAsync(new AssessmentCriterion
         {
@@ -152,6 +205,7 @@ public sealed class Seed(AppDbContext db)
             RunId = run.Id,
             EngagementId = run.EngagementId,
             ControlId = control.Id,
+            ScopeItemId = scopeItem?.Id,
             Verdict = PreliminaryVerdict.PreliminaryPass,
             Rationale = "Test rationale.",
             CreatedAt = Now,

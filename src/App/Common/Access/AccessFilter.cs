@@ -1,3 +1,4 @@
+using App.Common.Errors;
 using App.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -50,14 +51,11 @@ public sealed class AccessFilter(AppDbContext db, AccessContext access) : IEndpo
 
     private static IResult Refuse(AccessOutcome outcome) => outcome switch
     {
-        AccessOutcome.Unauthenticated => Problem(StatusCodes.Status401Unauthorized, "unauthenticated", "Unauthenticated"),
-        AccessOutcome.Disabled => Problem(StatusCodes.Status403Forbidden, "user-disabled", "User disabled"),
-        AccessOutcome.NotFound => Problem(StatusCodes.Status404NotFound, "not-found", "Not found"),
-        _ => Problem(StatusCodes.Status403Forbidden, "forbidden", "Forbidden"),
+        AccessOutcome.Unauthenticated => Problems.Problem(StatusCodes.Status401Unauthorized, "unauthenticated", "Unauthenticated"),
+        AccessOutcome.Disabled => Problems.Problem(StatusCodes.Status403Forbidden, "user-disabled", "User disabled"),
+        AccessOutcome.NotFound => Problems.NotFound(),
+        _ => Problems.Forbidden(),
     };
-
-    private static IResult Problem(int status, string type, string title) =>
-        Results.Problem(statusCode: status, type: type, title: title);
 }
 
 /// <summary>Endpoint metadata: the route runs behind <see cref="AccessFilter"/>. A test requires it on every /api route.</summary>

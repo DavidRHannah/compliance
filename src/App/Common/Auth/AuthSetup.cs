@@ -1,7 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.Extensions.Options;
 
 namespace App.Common.Auth;
 
@@ -14,6 +13,10 @@ public sealed class AuthSettings
 
     [Required]
     public string ClientId { get; set; } = "";
+
+    /// <summary>For the admin calls that invite, disable and enable users.</summary>
+    [Required]
+    public string UserPoolId { get; set; } = "";
 }
 
 public static class AuthSetup
@@ -35,12 +38,16 @@ public static class AuthSetup
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer();
 
         // Configured when the options are first built, so settings added late (as the tests do) are seen.
+        // Reads the raw settings, not the validated ones: the middleware builds these options on every
+        // request, so in development, empty settings would otherwise break /health and Scalar too.
+        // Without settings, a request with a token gets 401; startup validation covers other environments.
         services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
-            .Configure<IOptions<AuthSettings>>((options, auth) =>
+            .Configure<IConfiguration>((options, config) =>
             {
-                var clientId = auth.Value.ClientId;
+                var auth = config.GetSection("Auth").Get<AuthSettings>() ?? new AuthSettings();
+                var clientId = auth.ClientId;
 
-                options.Authority = auth.Value.Authority;
+                options.Authority = string.IsNullOrEmpty(auth.Authority) ? null : auth.Authority;
                 options.MapInboundClaims = false;
 
                 // Cognito access tokens have no "aud". They carry "client_id" instead.

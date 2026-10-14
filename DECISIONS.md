@@ -71,3 +71,18 @@ One entry per hard-to-reverse choice: the date, the choice, and the reason. Newe
 - Date: 2026-10-14
 - Choice: The API writes and reads enums as snake_case strings, such as "client" and "preliminary_pass", set once in Program.cs for all endpoints.
 - Reason: Strings stay readable and do not change meaning if an enum's order changes. They are the same names the database uses. The frontend depends on them, so a change needs both repositories.
+
+## 15. Keyset paging on UUIDv7 IDs
+- Date: 2026-10-14
+- Choice: Lists sort by ID and return items and nextCursor. The cursor is the last ID on the page, base64url-encoded, and clients treat it as opaque. The limit is 50 by default and 100 at most, so an engagement's 93 controls fit in one page.
+- Reason: UUIDv7 IDs sort by creation time, so pages stay stable while rows are added, with no offset scans. The response shape is part of the API contract.
+
+## 16. Queue messages are sent before the transaction commits
+- Date: 2026-10-14
+- Choice: A handler saves its changes, sends its queue message, then commits. This applies only to messages whose handlers can safely run again, such as scope re-linking.
+- Reason: A commit followed by a failed send would lose the message, and nothing would retry it. A message sent for a change that then rolls back does no harm, because the handler repeats safely (PR-4, QR-5). No outbox table is needed.
+
+## 17. Cognito account first, users row second
+- Date: 2026-10-14
+- Choice: Inviting creates the Cognito account, then the users row with its subject. If the row cannot be saved, the account is deleted. Disable and enable change the row, call Cognito, then commit. The user pool signs in with email as the username attribute, so the Cognito username is the subject.
+- Reason: users.external_id is required, so the subject must exist first. This order keeps Cognito and the database in step without a background job.
