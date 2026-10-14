@@ -16,19 +16,23 @@ C# on .NET 10, ASP.NET Core minimal APIs, EF Core with Npgsql, Aurora PostgreSQL
 ## Commands
 
 ```
+docker compose up -d                  # local PostgreSQL with pgvector
 dotnet build                          # build
 dotnet test                           # all tests (integration tests need Docker)
 dotnet run --project src/App          # API, plus the worker when Worker:Enabled is true
 dotnet run --project src/App -- migrate          # one-off task: run migrations
 dotnet run --project src/App -- import-catalog   # one-off task: load the control catalog
-dotnet ef migrations add <Name> --project src/App
+dotnet tool restore                   # once, for dotnet ef
+dotnet ef migrations add <Name> --project src/App --output-dir Data/Migrations
+powershell -File scripts/generate-schema-dbml.ps1   # after a migration: regenerate docs/schema.dbml (needs Node.js)
 ```
 
 ## Layout
 
 ```
 src/App/          one project: Features/, Pipeline/, Integrations/, Data/, Common/, Tasks/
-tests/App.Tests/  unit and integration tests
+tests/App.Tests/  unit and integration tests; Infrastructure/ holds the Testcontainers fixture and Seed
+scripts/          developer and CI scripts
 diagrams/         hand-made diagrams (.drawio.svg, .mmd)
 docs/             generated files; never edit by hand
 DECISIONS.md      hard-to-reverse choices
@@ -57,5 +61,5 @@ AWS SDK types appear only in `Integrations/Aws/`. Features and the pipeline use 
 ## References
 
 - Functional and technical specifications, v2.3 (requirement IDs such as AS-5 come from these)
-- `specs/schema-v2.4.mmd` until the first migration; after that, the generated `docs/schema.dbml`
+- `docs/schema.dbml`, generated from the migrations; `specs/schema-v2.4.mmd` was the design it came from
 - `diagrams/system-infrastructure.drawio.svg`

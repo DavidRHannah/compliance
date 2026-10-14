@@ -51,3 +51,13 @@ One entry per hard-to-reverse choice: the date, the choice, and the reason. Newe
 - Date: 2026-10-11
 - Choice: Engagement context in prompts is scope items only. 
 - Reason: No organization profile or implementation statements, because they describe the company or the client’s claims, not evidence for the assessed scope
+
+## 11. Database rules live in the database, mapped by EF Core
+- Date: 2026-10-14
+- Choice: Table and column names are snake_case, set by EFCore.NamingConventions. Enums are PostgreSQL enum types. Entities have foreign key properties but no navigation properties. Every foreign key restricts deletes, except scope item to mentions, which cascades. Keys, CHECKs and partial unique indexes are in the EF model. Triggers and the case-insensitive email index are hand-written SQL in the migrations.
+- Reason: The database keeps engagements apart and keeps history even if application code has a bug. Without navigations, every join names engagement_id. Renaming tables, columns or enum types later needs a migration that stays compatible with the running version.
+
+## 12. docs/schema.dbml is generated from the migrations
+- Date: 2026-10-14
+- Choice: scripts/generate-schema-dbml.ps1 applies the migrations to a throwaway database and reads the schema back with the DBML CLI. CI fails if the committed file differs.
+- Reason: The schema reference cannot drift from the migrations. DBML cannot show partial index conditions, expression indexes or triggers, so those are read from the EF configurations and the migrations.

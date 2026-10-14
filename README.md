@@ -979,17 +979,31 @@ mindmap
 Prerequisites:
 - Visual Studio 2026 with the "ASP.NET and web development" workload, or the .NET 10 SDK with another editor
 - Docker Desktop, for the local database and integration tests
+- Node.js, only to regenerate `docs/schema.dbml`
+
+Start the local database and apply the migrations first:
+
+```
+docker compose up -d
+dotnet run --project src/App -- migrate
+```
 
 In Visual Studio:
-1. Open `ComplianceBackend.sln`.
+1. Open `ComplianceBackend.slnx`.
 2. Set `App` as the startup project and press F5.
-3. Open `/health` to check the service is running, and `/scalar` to browse the API.
+3. Open `/health` to check the service and its database are up, and `/scalar` to browse the API.
 
 From a terminal at the repository root:
 
 ```
 dotnet build
 dotnet run --project src/App
+```
+
+After adding a migration, regenerate the schema reference and commit it. CI fails if it is out of date.
+
+```
+powershell -File scripts/generate-schema-dbml.ps1
 ```
 
 ## Test

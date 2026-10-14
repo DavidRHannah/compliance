@@ -1,11 +1,11 @@
 name: CI
 
-on: 
+on:
   pull_request:
   push:
     branches: [main]
 jobs:
-  build-and-test: 
+  build-and-test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -15,3 +15,16 @@ jobs:
       - run: dotnet restore
       - run: dotnet build --no-restore
       - run: dotnet test --no-build
+      # docs/ is generated. Fail if the committed schema does not match the migrations.
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+      - run: pwsh scripts/generate-schema-dbml.ps1
+      - name: Check docs/ is up to date
+        run: |
+          if [ -n "$(git status --porcelain docs)" ]; then
+            git status --porcelain docs
+            git diff docs
+            echo "docs/ is out of date. Run scripts/generate-schema-dbml.ps1 and commit the result."
+            exit 1
+          fi
