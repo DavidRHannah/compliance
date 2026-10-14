@@ -25,9 +25,39 @@ public sealed class Seed(AppDbContext db)
         return await AddAsync(user);
     }
 
+    public async Task<User> DisabledConsultantAsync()
+    {
+        var user = await ConsultantAsync();
+        user.DisabledAt = Now;
+        await db.SaveChangesAsync();
+        return user;
+    }
+
+    public async Task<Client> ClientAsync()
+    {
+        return await AddAsync(new Client { Name = "Test Client", CreatedAt = Now });
+    }
+
+    public async Task<User> ClientUserAsync(Client client)
+    {
+        return await AddAsync(new User
+        {
+            ExternalId = Guid.NewGuid().ToString(),
+            Email = $"{Guid.NewGuid()}@example.test",
+            DisplayName = "Test Client User",
+            Role = UserRole.Client,
+            ClientId = client.Id,
+            CreatedAt = Now,
+        });
+    }
+
     public async Task<Engagement> EngagementAsync(User lead)
     {
-        var client = await AddAsync(new Client { Name = "Test Client", CreatedAt = Now });
+        return await EngagementAsync(lead, await ClientAsync());
+    }
+
+    public async Task<Engagement> EngagementAsync(User lead, Client client)
+    {
         return await AddAsync(new Engagement
         {
             ClientId = client.Id,

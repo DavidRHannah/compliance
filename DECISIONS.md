@@ -61,3 +61,13 @@ One entry per hard-to-reverse choice: the date, the choice, and the reason. Newe
 - Date: 2026-10-14
 - Choice: scripts/generate-schema-dbml.ps1 applies the migrations to a throwaway database and reads the schema back with the DBML CLI. CI fails if the committed file differs.
 - Reason: The schema reference cannot drift from the migrations. DBML cannot show partial index conditions, expression indexes or triggers, so those are read from the EF configurations and the migrations.
+
+## 13. Access check in one endpoint filter, not ASP.NET role policies
+- Date: 2026-10-14
+- Choice: The authorization middleware only requires a valid Cognito access token. One filter on every route under /api then checks, in order: user known (401 if not), user disabled (403), engagement visible (404), role allowed (403). A route that declares no roles is refused.
+- Reason: Role policies run before the engagement is loaded, so a client user asking for another client's engagement would get 403 and learn that it exists. The order lives in one pure function that unit tests cover.
+
+## 14. Enums in JSON are snake_case strings
+- Date: 2026-10-14
+- Choice: The API writes and reads enums as snake_case strings, such as "client" and "preliminary_pass", set once in Program.cs for all endpoints.
+- Reason: Strings stay readable and do not change meaning if an enum's order changes. They are the same names the database uses. The frontend depends on them, so a change needs both repositories.
