@@ -1,4 +1,6 @@
-<Solution>
+﻿<Solution>
+  <Project Path="infra/Infra.csproj" />
   <Project Path="src/App/App.csproj" />
   <Project Path="tests/App.Tests/App.Tests.csproj" Id="89df5bdd-e8ca-47b5-a9ad-5ee1fc4004be" />
+  <Project Path="tests/Infra.Tests/Infra.Tests.csproj" />
 </Solution>

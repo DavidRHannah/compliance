@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 using Amazon.BedrockRuntime;
 using Amazon.CognitoIdentityProvider;
 using Amazon.Runtime;
+using Amazon.S3;
 using Amazon.SQS;
 using App.Common.Access;
 using App.Common.Auth;
@@ -23,17 +24,44 @@ using App.Integrations.Aws;
 using App.Pipeline;
 using App.Pipeline.Assessments;
 using App.Tasks;
+using Npgsql;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// One JSON line per log entry for CloudWatch.
+if (!builder.Environment.IsDevelopment())
+{
+    builder.Logging.AddJsonConsole();
+}
 
 builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails();
 // Enums go over the wire as snake_case strings, the same names the database uses.
 builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.SnakeCaseLower)));
-builder.Services.AddDbContext<AppDbContext>(options =>
-    AppDbContext.Configure(options, builder.Configuration.GetConnectionString("Database")));
+// In AWS the task gets the host and the Aurora secret's username and password as separate settings.
+// Rotating the secret needs no change to the app.
+// Read when the context is first built, so the tests' settings are already in place.
+builder.Services.AddDbContext<AppDbContext>((services, options) =>
+{
+    var config = services.GetRequiredService<IConfiguration>();
+    var connectionString = config.GetConnectionString("Database");
+    if (string.IsNullOrEmpty(connectionString) && !string.IsNullOrEmpty(config["Database:Host"]))
+    {
+        connectionString = new NpgsqlConnectionStringBuilder
+        {
+            Host = config["Database:Host"],
+            Port = config.GetValue("Database:Port", 5432),
+            Database = config["Database:Name"],
+            Username = config["Database:Username"],
+            Password = config["Database:Password"],
+            SslMode = SslMode.Require,
+        }.ConnectionString;
+    }
+
+    AppDbContext.Configure(options, connectionString);
+});
 builder.Services.AddHealthChecks().AddDbContextCheck<AppDbContext>();
 builder.Services.AddCognitoAuth(builder.Environment);
 builder.Services.AddScoped<AccessContext>();
@@ -47,7 +75,10 @@ builder.Services.AddDefaultAWSOptions(awsOptions);
 builder.Services.AddAWSService<IAmazonCognitoIdentityProvider>();
 builder.Services.AddAWSService<IAmazonSQS>();
 builder.Services.AddAWSService<IAmazonBedrockRuntime>();
+builder.Services.AddAWSService<IAmazonS3>();
 builder.Services.AddScoped<IUserDirectory, CognitoUserDirectory>();
+builder.Services.Configure<CatalogSettings>(builder.Configuration.GetSection("Catalog"));
+builder.Services.AddScoped<ICatalogSource, S3CatalogSource>();
 
 var bedrock = builder.Services.AddOptions<BedrockSettings>().BindConfiguration("Bedrock").ValidateDataAnnotations();
 builder.Services.Configure<QueueSettings>(options => builder.Configuration.GetSection("Queues").Bind(options.Queues));
@@ -86,10 +117,14 @@ if (builder.Configuration.GetValue<bool>("Worker:Enabled"))
 var app = builder.Build();
 
 // A command runs a one-off task instead of the API.
-if (args.FirstOrDefault() == "migrate")
+switch (args.FirstOrDefault())
 {
-    await Migrate.RunAsync(app.Services);
-    return;
+    case "migrate":
+        await Migrate.RunAsync(app.Services);
+        return;
+    case "import-catalog":
+        await ImportCatalog.RunAsync(app.Services, args);
+        return;
 }
 
 app.UseAuthentication();

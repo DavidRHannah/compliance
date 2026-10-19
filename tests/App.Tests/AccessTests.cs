@@ -46,11 +46,7 @@ public class AccessTests(PostgresFixture postgres)
         Assert.Equal(HttpStatusCode.OK, health.StatusCode);
     }
 
-    [Fact(Skip = "Pending")]
-    [Requirement("AC-2", "Every user must sign in with multi-factor authentication.")]
-    public void SignIn_RequiresMfa()
-    {
-    }
+    // AC-2 (multi-factor sign-in) is a Cognito setting, proven in tests/Infra.Tests.
 
     [Fact]
     [Requirement("AC-3", "Users are created by invitation. There is no self-registration.")]

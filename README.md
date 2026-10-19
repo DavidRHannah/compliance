@@ -36,7 +36,7 @@ The primary feature enables clients and consultants to upload evidence documents
 ## Project structure
 
 ```
-ComplianceBackend.sln
+ComplianceBackend.slnx
 Directory.Build.props        shared build settings for every project
 DECISIONS.md                 hard-to-reverse design choices
 docs/                        generated files; never edit by hand
@@ -50,10 +50,29 @@ src/App/                     the application: API and worker in one project
   Data/                      DbContext, entity configurations, migrations
   Common/                    sign-in, access checks, errors, paging
 tests/App.Tests/             unit and integration tests
-infra/                       CDK project
+tests/Infra.Tests/           tests of the synthesized CloudFormation (needs Node.js)
+infra/                       CDK project: PlatformStack (network, database, queues, ...) and ServicesStack
+scripts/                     developer and CI scripts, including deploy-dev.ps1
 ```
 
 Folders are created when their first file is added.
+
+## Deploying to dev
+
+One-time setup, in the dev AWS account:
+
+1. Install the AWS CLI and Node.js, and make a CLI profile for the dev account (`aws configure sso --profile dev`).
+2. Bootstrap CDK: `npx aws-cdk@2 bootstrap aws://<account-id>/us-east-1 --profile dev`.
+3. In the Bedrock console, accept the Anthropic first-use form and enable the Claude model and Titan Text Embeddings V2. Note the model ID (or the `us.` inference profile ID) to pass as `-ModelId`.
+4. Check that the Aurora version in `infra/PlatformStack.cs` is available: `aws rds describe-db-engine-versions --engine aurora-postgresql --query "DBEngineVersions[].EngineVersion" --profile dev`.
+
+Each deploy:
+
+```
+powershell -File scripts/deploy-dev.ps1 -Profile dev -ModelId <model id> -AlarmEmail you@example.com
+```
+
+It runs the tests, deploys the Platform stack, pushes the image, runs the `migrate` task, deploys the Services stack, and prints the site URL and the Cognito IDs. Add `-ImportCatalog` the first time to load the control catalog from `res/`.
 
 ## Architecture
 

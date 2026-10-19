@@ -54,7 +54,9 @@ public static class AccessCheck
         {
             return false;
         }
-
+        // If the caller is an admin or consultant, they may access.
+        // If the client company's id doesn't match the engagement's
+        // client company id then it defers to User Role check above.
         return caller.Role != UserRole.Client || caller.ClientId == engagement.ClientId;
     }
 }

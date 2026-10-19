@@ -66,10 +66,5 @@ public class DeadLetterTests(PostgresFixture postgres, LocalStackFixture localSt
         Assert.Contains(runId.ToString(), Assert.Single(dead).Body, StringComparison.OrdinalIgnoreCase);
     }
 
-    // The rest of QR-6: the alarm on a non-empty dead-letter queue is infrastructure (CDK). Fill in
-    // with an infrastructure test, then fold it into the QR-6 test above.
-    [Fact(Skip = "Pending: infrastructure")]
-    public void DeadLetterQueue_RaisesAnAlert()
-    {
-    }
+    // The alarm on a non-empty dead-letter queue is proven in tests/Infra.Tests (also QR-6).
 }

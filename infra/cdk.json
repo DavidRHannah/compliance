@@ -1,0 +1,1 @@
+﻿{ "app": "dotnet run --no-launch-profile", "output": "cdk.out" }

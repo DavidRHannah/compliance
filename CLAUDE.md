@@ -62,4 +62,4 @@ AWS SDK types appear only in `Integrations/Aws/`. Features and the pipeline use 
 
 - Functional and technical specifications, v2.3 (requirement IDs such as AS-5 come from these)
 - `docs/schema.dbml`, generated from the migrations; `specs/schema-v2.4.mmd` was the design it came from
-- `diagrams/system-infrastructure.drawio.svg`
+- `diagrams/drawio/System_Infrastructure.drawio.svg`

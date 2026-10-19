@@ -4,6 +4,11 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+
+    <!-- Container image built by dotnet publish -t:PublishContainer; no Dockerfile. -->
+    <ContainerRepository>compliance-backend</ContainerRepository>
+    <ContainerFamily>noble-chiseled</ContainerFamily>
+    <ContainerUser>app</ContainerUser>
   </PropertyGroup>
 
   <ItemGroup>
@@ -21,6 +26,7 @@
     <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" Version="10.0.13" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
     <PackageReference Include="Pgvector.EntityFrameworkCore" Version="0.3.0" />
+    <PackageReference Include="AWSSDK.S3" Version="4.0.100" />
     <PackageReference Include="AWSSDK.SQS" Version="4.0.100.17" />
     <PackageReference Include="Scalar.AspNetCore" Version="2.17.14" />
   </ItemGroup>

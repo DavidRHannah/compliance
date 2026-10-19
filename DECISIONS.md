@@ -112,3 +112,43 @@ One entry per hard-to-reverse choice: the date, the choice, and the reason. Newe
 - Date: 2026-10-14
 - Choice: A control is under review when its latest consultant decision is on an earlier assessment and its current assessment has no decision. Clearing a flag does not end it; only a decision on the current assessment does. Results are paged by control ID like other lists, and the totals always cover the whole engagement.
 - Reason: RV-13 says the earlier verdict stays, marked under review, until a consultant decides on the new assessment. Client users see this value and the frontend depends on the response shape, so a change needs both repositories.
+
+## 23. Region and accounts
+- Date: 2026-10-14
+- Choice: Everything runs in us-east-1. Development and production are separate AWS accounts, and the CDK app takes the environment as context. Development never holds client documents.
+- Reason: Bedrock models and Textract must be available in the region, and us-east-1 has them. Separate accounts keep client documents out of the account where we experiment.
+
+## 24. No NAT gateway; VPC endpoints instead
+- Date: 2026-10-14
+- Choice: Tasks run in subnets with no route to the internet. They reach S3 through a gateway endpoint and SQS, Bedrock, Textract, Secrets Manager, ECR, CloudWatch Logs and Cognito through interface endpoints. Development puts each interface endpoint in one AZ. The `natGateway` context value adds one NAT gateway if something turns out to need the internet (see decision 25 for the one known doubt).
+- Reason: Client documents and prompts never leave the AWS network, and a NAT gateway costs about as much as four endpoints. One endpoint AZ halves the endpoint cost in dev; production should use both.
+
+## 25. Sign-in keys are fetched through the Cognito endpoint (to verify)
+- Date: 2026-10-14
+- Choice: The API validates tokens with the keys from the pool's .well-known/jwks.json, and the task has no internet route. We expect the Cognito interface endpoint to serve that path. The first dev deploy checks it. If it does not, the options are a NAT gateway in dev or keys cached by the app.
+- Reason: The AWS documentation does not say whether the path is served through the endpoint. Finding out costs one request on the first deploy.
+
+## 26. Internal load balancer behind a CloudFront VPC origin
+- Date: 2026-10-14
+- Choice: CloudFront serves the frontend bucket and sends /api/* to an internal ALB through a VPC origin. The ALB listens on port 80 and accepts traffic from the VPC address range. Dev uses the CloudFront default domain, so there is no certificate.
+- Reason: The ALB has no public address, so nothing reaches the API except through CloudFront. Traffic between CloudFront and the ALB stays inside AWS. The VPC range is wider than the diagram's "CloudFront only" rule, but only our own tasks and the origin's network interfaces live in the VPC. A custom domain and HTTPS to the ALB come with production.
+
+## 27. Database connection assembled from the Aurora secret
+- Date: 2026-10-14
+- Choice: If ConnectionStrings:Database is empty, the app builds the string from Database:Host, Port, Name, Username and Password, with SSL required. ECS injects the username and password from the Aurora secret. The server certificate is not verified yet, because the RDS certificate authority is not in the minimal image.
+- Reason: ECS cannot build a connection string from a secret, and a stored full string would go stale when the secret rotates. Verifying the certificate is a production task.
+
+## 28. Two stacks, with migrate between them
+- Date: 2026-10-14
+- Choice: PlatformStack holds the network, database, queues, buckets, Cognito and the image repository. ServicesStack holds the API, the worker, the load balancer and CloudFront. A deploy runs Platform, pushes the image, runs the migrate task, then runs Services. Task definitions are created in the stack that runs them, and both security groups are in Platform.
+- Reason: The spec says migrations run before the services roll. A migration needs the database and the image, which only the first stack provides. Putting the security groups in one stack avoids a dependency cycle between the stacks.
+
+## 29. Container image from dotnet publish, not a Dockerfile
+- Date: 2026-10-14
+- Choice: The image is built with dotnet publish -t:PublishContainer on the chiseled Ubuntu base image, running as the app user on port 8080.
+- Reason: One less file to keep in step with the project, and a smaller image with no shell. The cost is that Docker features such as multi-stage tweaks are not available; revisit if we need them.
+
+## 30. Development sizing
+- Date: 2026-10-14
+- Choice: Aurora Serverless v2 with a single writer and 0.5 to 4 ACU. Two API tasks and one worker, scaling up to four of each. Logs are kept for one month.
+- Reason: Enough to test the whole flow for little money. Production adds a reader for failover and sets the capacity from measured load.

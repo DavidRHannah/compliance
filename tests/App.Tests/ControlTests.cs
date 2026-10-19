@@ -1,4 +1,5 @@
 ﻿using System.Net;
+using App.Tasks;
 using App.Tests.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 
@@ -78,9 +79,35 @@ public class ControlTests(PostgresFixture postgres)
     {
     }
 
-    [Fact(Skip = "Pending")]
+    [Fact]
     [Requirement("CT-6", "The control catalog is loaded by a developer task, not through the API. A control is never deleted.")]
-    public void Catalog_IsLoadedByTaskAndNeverDeleted()
+    public async Task Catalog_IsLoadedByTaskAndNeverDeleted()
     {
+        // A framework of its own, so the shared ISO 27001 test data is untouched.
+        var key = $"test_{Guid.NewGuid():N}";
+        await using var db = postgres.CreateDbContext();
+
+        await ImportCatalog.RunAsync(db, new StringReader(
+            "Reference,Theme,Title,Control statement\n" +
+            "A.5.1,Organizational,Policies,\"Policies, defined \"\"and\"\" approved.\"\n" +
+            "A.6.1,People,Screening,Screening is done.\n"), key, "Test", "2022");
+
+        var framework = await db.Frameworks.SingleAsync(f => f.Key == key);
+        var controls = await db.Controls.Where(c => c.FrameworkId == framework.Id).OrderBy(c => c.RefCode).ToListAsync();
+        Assert.Equal(["5.1", "6.1"], controls.Select(c => c.RefCode));
+        Assert.Equal("organizational", controls[0].Theme);
+        Assert.Equal("Policies, defined \"and\" approved.", controls[0].Statement);
+
+        // A second load with one row missing and one changed: it updates, adds nothing twice and deletes nothing.
+        await ImportCatalog.RunAsync(db, new StringReader(
+            "Reference,Theme,Title,Control statement\n" +
+            "A.5.1,Organizational,Policies for security,New text.\n"), key, "Test", "2022");
+
+        await using var check = postgres.CreateDbContext();
+        var after = await check.Controls.Where(c => c.FrameworkId == framework.Id).OrderBy(c => c.RefCode).ToListAsync();
+        Assert.Equal(["5.1", "6.1"], after.Select(c => c.RefCode));
+        Assert.Equal(controls[0].Id, after[0].Id);
+        Assert.Equal("New text.", after[0].Statement);
+        Assert.Equal(1, await check.Frameworks.CountAsync(f => f.Key == key));
     }
 }

@@ -45,6 +45,7 @@ public sealed class AccessFilter(AppDbContext db, AccessContext access) : IEndpo
             return Refuse(outcome);
         }
 
+        // caller! is safe because a null caller is refused by AccessCheck.Decide
         access.Set(caller!, engagement?.Id);
         return await next(context);
     }

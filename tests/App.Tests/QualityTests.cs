@@ -33,17 +33,7 @@ public class QualityTests(PostgresFixture postgres)
         Assert.Equal([chunkB.Id], inB);
     }
 
-    [Fact(Skip = "Pending")]
-    [Requirement("QR-2", "All data is encrypted in transit and at rest.")]
-    public void Data_IsEncryptedInTransitAndAtRest()
-    {
-    }
-
-    [Fact(Skip = "Pending")]
-    [Requirement("QR-3", "The backend holds no long-lived credentials. It reaches AWS services through its assigned role.")]
-    public void Backend_HoldsNoLongLivedCredentials()
-    {
-    }
+    // QR-2 (encryption) and QR-3 (no long-lived credentials) are infrastructure, proven in tests/Infra.Tests.
 
     [Fact(Skip = "Pending")]
     [Requirement("QR-4", "Every model call goes through Amazon Bedrock in the firm's own AWS account.")]

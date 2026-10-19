@@ -12,13 +12,14 @@ jobs:
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 10.0.x
+      # Node.js runs the CDK in the infrastructure tests and the schema script below.
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
       - run: dotnet restore
       - run: dotnet build --no-restore
       - run: dotnet test --no-build
       # docs/ is generated. Fail if the committed schema does not match the migrations.
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 22
       - run: pwsh scripts/generate-schema-dbml.ps1
       - name: Check docs/ is up to date
         run: |
