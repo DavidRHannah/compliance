@@ -27,6 +27,7 @@ using App.Tasks;
 using Npgsql;
 using Scalar.AspNetCore;
 
+// <summary>The main entry point for the application.</summary>
 var builder = WebApplication.CreateBuilder(args);
 
 // One JSON line per log entry for CloudWatch.
@@ -35,18 +36,25 @@ if (!builder.Environment.IsDevelopment())
     builder.Logging.AddJsonConsole();
 }
 
-builder.Services.AddOpenApi();
-builder.Services.AddProblemDetails();
+builder.Services.AddOpenApi(); // OpenAPI document and Swagger UI at /scalar.
+
+builder.Services.AddProblemDetails(); // RFC 7807 problem details for errors, including validation failures.
+
 // Enums go over the wire as snake_case strings, the same names the database uses.
 builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.SnakeCaseLower)));
+
 // In AWS the task gets the host and the Aurora secret's username and password as separate settings.
 // Rotating the secret needs no change to the app.
 // Read when the context is first built, so the tests' settings are already in place.
 builder.Services.AddDbContext<AppDbContext>((services, options) =>
 {
+    // Resolve configuration when the DbContext is created.
     var config = services.GetRequiredService<IConfiguration>();
+    
+    // The connection string is either a single setting or built from separate settings.
     var connectionString = config.GetConnectionString("Database");
+
     if (string.IsNullOrEmpty(connectionString) && !string.IsNullOrEmpty(config["Database:Host"]))
     {
         connectionString = new NpgsqlConnectionStringBuilder

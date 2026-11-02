@@ -26,9 +26,11 @@ var environment = new Amazon.CDK.Environment
     Region = "us-east-1",
 };
 
+// save platform stack for the services stack to reference its resources.
 var platform = new PlatformStack(app, "Platform", settings,
     new StackProps { Env = environment, StackName = $"compliance-{settings.EnvName}-platform" });
-new ServicesStack(app, "Services", settings, platform,
+
+new ServicesStack(app, "Services", settings, platform, 
     new StackProps { Env = environment, StackName = $"compliance-{settings.EnvName}-services" });
 
 app.Synth();

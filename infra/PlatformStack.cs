@@ -264,12 +264,15 @@ public class PlatformStack : Stack
 
     private (Queue Queue, Queue DeadLetter) CreateQueue(string name)
     {
+        // The dead-letter queue is encrypted with the same key, so the consumer can read it.
         var deadLetter = new Queue(this, $"{name}DeadLetterQueue", new QueueProps
         {
             Encryption = QueueEncryption.KMS,
             EncryptionMasterKey = Key,
             RetentionPeriod = Duration.Days(14),
         });
+  
+        // The main queue is encrypted with the same key, so the consumer can read it.
         var queue = new Queue(this, $"{name}Queue", new QueueProps
         {
             Encryption = QueueEncryption.KMS,
@@ -277,11 +280,13 @@ public class PlatformStack : Stack
             VisibilityTimeout = Duration.Minutes(5),
             DeadLetterQueue = new DeadLetterQueue { Queue = deadLetter, MaxReceiveCount = 3 },
         });
+
         return (queue, deadLetter);
     }
 
     private void AddAlarms()
     {
+        // The deploy script reads the alarm topic ARN to subscribe the team.
         var action = new SnsAction(AlarmTopic);
 
         foreach (var (name, queue, deadLetter) in new[]
@@ -301,6 +306,7 @@ public class PlatformStack : Stack
                 TreatMissingData = TreatMissingData.NOT_BREACHING,
             }).AddAlarmAction(action);
 
+            // A message in the main queue that is over 30 minutes old means a job is stuck.
             new Alarm(this, $"{name}OldestMessage", new AlarmProps
             {
                 AlarmDescription = $"The oldest {name.ToLowerInvariant()} message is over 30 minutes old.",
@@ -312,6 +318,7 @@ public class PlatformStack : Stack
             }).AddAlarmAction(action);
         }
 
+        // Aurora Serverless v2 has no CloudWatch alarm for max capacity, so we make one.
         new Alarm(this, "AuroraAtMaxCapacity", new AlarmProps
         {
             AlarmDescription = "Aurora Serverless capacity has reached its maximum.",
@@ -330,6 +337,7 @@ public class PlatformStack : Stack
         }).AddAlarmAction(action);
     }
 
+    // The deploy script reads these outputs to configure the services stack and the frontend.
     private void AddOutputs()
     {
         // The deploy script reads these.
