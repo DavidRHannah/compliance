@@ -4,7 +4,7 @@ using App.Pipeline.Assessments;
 
 namespace App.Tests;
 
-/// <summary>The pure rules of the assessment worker: citation checks, verdict rules and rank fusion.</summary>
+/// <summary>The pure rules of the assessment worker: citation checks, verdict rules, and rank fusion.</summary>
 public class CitationCheckTests
 {
     private const string Content = "The information  security\npolicy is reviewed every year.";

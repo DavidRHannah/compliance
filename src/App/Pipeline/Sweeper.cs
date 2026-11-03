@@ -22,7 +22,7 @@ public sealed class Sweeper(IServiceScopeFactory scopes, IOptions<WorkerSettings
             {
                 await using var scope = scopes.CreateAsyncScope(); // create a scope for the DbContext, so it is disposed after each sweep
                 var db = scope.ServiceProvider.GetRequiredService<AppDbContext>(); // get a DbContext from the scope
-                // fail runs that have made no progress for 30 minutes, so someone can resume them
+                // fail runs that have made no progress for 10 minutes, so someone can resume them
                 
                 var failed = await FailStalledRunsAsync(db, DateTimeOffset.UtcNow, TimeSpan.FromMinutes(settings.Value.StalledRunMinutes), stoppingToken);
                 if (failed > 0)

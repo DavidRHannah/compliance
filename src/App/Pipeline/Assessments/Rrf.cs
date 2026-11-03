@@ -20,6 +20,7 @@ public static class Rrf
             }
         }
 
+        // The result is the same every time because ties go to the smaller ID.
         return scores
             .OrderByDescending(s => s.Value)
             .ThenBy(s => s.Key)

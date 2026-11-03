@@ -1,8 +1,13 @@
 ﻿using App.Integrations.Abstractions;
+using System.Runtime.InteropServices;
 
 namespace App.Pipeline.Assessments;
 
-/// <summary>A citation after the check. ChunkId is null when the model gave no valid ID. Offsets are set only when it is verified.</summary>
+/// <summary>
+/// A citation after the check. 
+/// ChunkId is null when the model gave no valid ID. 
+/// Offsets are set only when it is verified.
+/// </summary>
 public sealed record CheckedCitation(Guid? ChunkId, string Quote, int? CharStart, int? CharEnd)
 {
     public bool IsVerified => CharStart is not null;
@@ -10,32 +15,37 @@ public sealed record CheckedCitation(Guid? ChunkId, string Quote, int? CharStart
 
 /// <summary>
 /// A citation is verified when its chunk was one of those sent and its quote appears in that
-/// chunk, ignoring case and whitespace (AS-5). Offsets point into the original content.
+/// chunk, ignoring case, and whitespace (AS-5). Offsets point into the original content.
 /// </summary>
 public static class CitationCheck
 {
+    /// <summary>
+    /// Checks a citation against the sent chunks to verify its validity and locate it in the source content.
+    /// </summary>
+    /// <param name="citation">The citation from the model containing a chunk ID and quote to verify.</param>
+    /// <param name="sentChunks">The dictionary of sent chunks.</param>
     public static CheckedCitation Check(ModelCitation citation, IReadOnlyDictionary<Guid, string> sentChunks)
     {
         if (!Guid.TryParse(citation.ChunkId, out var chunkId))
         {
+            // The model gave a chunk ID that is not a valid GUID, so it cannot be verified.
             return new CheckedCitation(null, citation.Quote, null, null);
         }
 
-        // A chunk that was not sent cannot be verified, whatever the quote says.
         if (!sentChunks.TryGetValue(chunkId, out var content))
         {
+            // The chunk was not sent, so it cannot be verified. The model may have hallucinated a chunk ID.
             return new CheckedCitation(chunkId, citation.Quote, null, null);
         }
 
         var found = Find(content, citation.Quote);
-        return found is var (start, end)
-            ? new CheckedCitation(chunkId, citation.Quote, start, end)
-            : new CheckedCitation(chunkId, citation.Quote, null, null);
+        return found is var (start, end) ? new CheckedCitation(chunkId, citation.Quote, start, end) : new CheckedCitation(chunkId, citation.Quote, null, null);
     }
 
     /// <summary>The range of the original text that matches the quote, or null. An empty quote never matches.</summary>
     public static (int Start, int End)? Find(string content, string quote)
     {
+        // The quote without whitespace, in lower case.
         var needle = new string(quote.Where(c => !char.IsWhiteSpace(c)).Select(char.ToLowerInvariant).ToArray());
         if (needle.Length == 0)
         {
@@ -54,7 +64,18 @@ public static class CitationCheck
             }
         }
 
-        var index = new string(stripped.ToArray()).IndexOf(needle, StringComparison.Ordinal);
+        // The stripped content is shorter than the quote, so it cannot match.
+        if (stripped.Count < needle.Length)
+        {
+            return null;
+        }
+
+        // Needs benchmarking...
+        // use ReadOnlySpan to avoid allocating a new string for the stripped content
+        ReadOnlySpan<char> strippedSpan = CollectionsMarshal.AsSpan(stripped);
+
+        var index = strippedSpan.IndexOf(needle, StringComparison.Ordinal);
+
         return index < 0 ? null : (positions[index], positions[index + needle.Length - 1] + 1);
     }
 }
