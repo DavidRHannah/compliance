@@ -61,9 +61,24 @@ public class PlatformStack : Stack
             [
                 // Public subnets exist for the internet gateway that CloudFront's VPC origin needs
                 // (and for the NAT gateway if it is switched on). No task runs here.
-                new SubnetConfiguration { Name = "public", SubnetType = SubnetType.PUBLIC, CidrMask = 24 },
-                new SubnetConfiguration { Name = "private", SubnetType = subnetType, CidrMask = 24 },
-                new SubnetConfiguration { Name = "isolated", SubnetType = SubnetType.PRIVATE_ISOLATED, CidrMask = 24 },
+                new SubnetConfiguration 
+                { 
+                    Name = "public", 
+                    SubnetType = SubnetType.PUBLIC, 
+                    CidrMask = 24 
+                },
+                new SubnetConfiguration 
+                { 
+                    Name = "private", 
+                    SubnetType = subnetType, 
+                    CidrMask = 24 
+                },
+                new SubnetConfiguration 
+                { 
+                    Name = "isolated", 
+                    SubnetType = SubnetType.PRIVATE_ISOLATED, 
+                    CidrMask = 24 
+                },
             ],
         });
         TaskSubnets = new SubnetSelection { SubnetGroupName = "private" };
@@ -76,6 +91,7 @@ public class PlatformStack : Stack
             SubnetGroupName = "private",
             AvailabilityZones = settings.EnvName == "prod" ? Vpc.AvailabilityZones : [Vpc.AvailabilityZones[0]],
         };
+        
         var endpoints = new Dictionary<string, IInterfaceVpcEndpointService>
         {
             ["Sqs"] = InterfaceVpcEndpointAwsService.SQS,
@@ -87,6 +103,7 @@ public class PlatformStack : Stack
             ["Logs"] = InterfaceVpcEndpointAwsService.CLOUDWATCH_LOGS,
             ["CognitoIdp"] = new InterfaceVpcEndpointService($"com.amazonaws.{Region}.cognito-idp"),
         };
+
         foreach (var (name, service) in endpoints)
         {
             Vpc.AddInterfaceEndpoint($"{name}Endpoint", new InterfaceVpcEndpointOptions
@@ -104,6 +121,7 @@ public class PlatformStack : Stack
             Description = "API, worker and one-off tasks",
             AllowAllOutbound = true,
         });
+
         // The internal load balancer takes traffic from the CloudFront VPC origin, which sits inside the VPC.
         // Both security groups live here so the services stack never changes a rule in this one.
         LoadBalancerSecurityGroup = new SecurityGroup(this, "LoadBalancerSg", new SecurityGroupProps
@@ -247,11 +265,11 @@ public class PlatformStack : Stack
                 ["Auth__ClientId"] = UserPoolClient.UserPoolClientId,
                 ["Auth__UserPoolId"] = UserPool.UserPoolId,
                 ["Bedrock__AssessmentModelId"] = Settings.AssessmentModelId,
-                ["Bedrock__EmbeddingModelId"] = InfraSettings.EmbeddingModelId,
+                ["Bedrock__EmbeddingModelId"] = Settings.EmbeddingModelId,
                 ["Queues__Assessments__Url"] = AssessmentQueue.QueueUrl,
                 ["Queues__Documents__Url"] = DocumentQueue.QueueUrl,
                 ["Catalog__Bucket"] = CatalogBucket.BucketName,
-                ["Catalog__Key"] = "iso_iec_27001_annexA_2022_controls.csv",
+                ["Catalog__Key"] = Settings.CatalogKey,
             },
             Secrets = new Dictionary<string, Secret>
             {
@@ -271,7 +289,7 @@ public class PlatformStack : Stack
             EncryptionMasterKey = Key,
             RetentionPeriod = Duration.Days(14),
         });
-  
+
         // The main queue is encrypted with the same key, so the consumer can read it.
         var queue = new Queue(this, $"{name}Queue", new QueueProps
         {

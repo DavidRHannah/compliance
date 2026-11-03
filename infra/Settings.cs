@@ -11,6 +11,8 @@ public sealed record InfraSettings(
 {
     public const string EmbeddingModelId = "amazon.titan-embed-text-v2:0";
 
+    public const string CatalogKey = "iso_iec_27001_annexA_2022_controls.csv";
+
     /// <summary>Capacity ceiling of the Aurora cluster. The "at maximum" alarm watches it.</summary>
     public const double MaxAcu = 4;
 }

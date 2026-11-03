@@ -25,8 +25,7 @@ public class ServicesStack : Stack
     public Distribution Distribution { get; }
     public Bucket FrontendBucket { get; }
 
-    public ServicesStack(Construct scope, string id, InfraSettings settings, PlatformStack platform, IStackProps props)
-        : base(scope, id, props)
+    public ServicesStack(Construct scope, string id, InfraSettings settings, PlatformStack platform, IStackProps props) : base(scope, id, props)
     {
         // API: behind an internal load balancer. Only CloudFront reaches it.
         var apiTask = platform.NewTaskDefinition(this, "Api", workerEnabled: false);
@@ -36,13 +35,13 @@ public class ServicesStack : Stack
         {
             Cluster = platform.Cluster,
             TaskDefinition = apiTask,
-            DesiredCount = 2,
+            DesiredCount = 2, 
             VpcSubnets = platform.TaskSubnets,
             SecurityGroups = [platform.TaskSecurityGroup],
             AssignPublicIp = false,
             MinHealthyPercent = 100,
             MaxHealthyPercent = 200,
-            CircuitBreaker = new DeploymentCircuitBreaker { Rollback = true },
+            CircuitBreaker = new DeploymentCircuitBreaker { Rollback = true }, // if the new task fails to start, roll back to the previous one
             HealthCheckGracePeriod = Duration.Seconds(60),
         });
 
@@ -53,12 +52,13 @@ public class ServicesStack : Stack
             VpcSubnets = platform.TaskSubnets,
             SecurityGroup = platform.LoadBalancerSecurityGroup,
         });
+
         // Internal only: the traffic stays inside the VPC, so the listener is plain HTTP.
         LoadBalancer.AddListener("Http", new BaseApplicationListenerProps { Port = 80, Open = false })
             .AddTargets("Api", new AddApplicationTargetsProps
             {
                 Port = PlatformStack.ApiPort,
-                Protocol = ApplicationProtocol.HTTP,
+                Protocol = ApplicationProtocol.HTTP, 
                 Targets = [ApiService],
                 DeregistrationDelay = Duration.Seconds(30),
                 HealthCheck = new Amazon.CDK.AWS.ElasticLoadBalancingV2.HealthCheck
@@ -74,7 +74,7 @@ public class ServicesStack : Stack
 
         // Worker: consumes the queues, calls Bedrock and Textract. Scales on queue depth.
         var workerTask = platform.NewTaskDefinition(this, "Worker", workerEnabled: true, cpu: 1024, memory: 2048);
-        GrantWorker(platform, workerTask.TaskRole, settings);
+        GrantWorker(platform, workerTask.TaskRole, settings); 
 
         WorkerService = new FargateService(this, "WorkerService", new FargateServiceProps
         {
@@ -96,9 +96,20 @@ public class ServicesStack : Stack
                 AdjustmentType = AdjustmentType.CHANGE_IN_CAPACITY,
                 ScalingSteps =
                 [
-                    new ScalingInterval { Upper = 0, Change = -1 },
-                    new ScalingInterval { Lower = 10, Change = 1 },
-                    new ScalingInterval { Lower = 50, Change = 2 },
+                    new ScalingInterval 
+                    { 
+                        Upper = 0, 
+                        Change = -1 
+                    },
+                    new ScalingInterval 
+                    { 
+                        Lower = 10, 
+                        Change = 1 
+                    },
+                    new ScalingInterval { 
+                        Lower = 50, 
+                        Change = 2 
+                    },
                 ],
             });
 
@@ -110,6 +121,7 @@ public class ServicesStack : Stack
             BlockPublicAccess = BlockPublicAccess.BLOCK_ALL,
             RemovalPolicy = RemovalPolicy.RETAIN,
         });
+
         Distribution = new Distribution(this, "Distribution", new DistributionProps
         {
             DefaultRootObject = "index.html",
@@ -158,6 +170,7 @@ public class ServicesStack : Stack
         new CfnOutput(this, "FrontendBucketName", new CfnOutputProps { Value = FrontendBucket.BucketName });
     }
 
+    /// <summary> Grant the API role the permissions it needs to run the API.</summary>
     private static void GrantApi(PlatformStack platform, IGrantable role)
     {
         platform.AssessmentQueue.GrantSendMessages(role);
@@ -168,32 +181,37 @@ public class ServicesStack : Stack
         {
             Actions =
             [
-                "cognito-idp:AdminCreateUser", "cognito-idp:AdminGetUser", "cognito-idp:AdminDisableUser",
-                "cognito-idp:AdminEnableUser", "cognito-idp:AdminUserGlobalSignOut", "cognito-idp:AdminDeleteUser",
+                "cognito-idp:AdminCreateUser", 
+                "cognito-idp:AdminGetUser", 
+                "cognito-idp:AdminDisableUser",
+                "cognito-idp:AdminEnableUser", 
+                "cognito-idp:AdminUserGlobalSignOut", 
+                "cognito-idp:AdminDeleteUser",
             ],
-            Resources = [platform.UserPool.UserPoolArn],
+            Resources = [platform.UserPool.UserPoolArn], 
         }));
     }
 
+    /// <summary> Grant the worker role the permissions it needs to run the tasks.</summary>
     private void GrantWorker(PlatformStack platform, IGrantable role, InfraSettings settings)
     {
-        platform.AssessmentQueue.GrantConsumeMessages(role);
-        platform.AssessmentQueue.GrantSendMessages(role);
-        platform.DocumentQueue.GrantConsumeMessages(role);
-        platform.DocumentQueue.GrantSendMessages(role);
-        platform.DocumentsBucket.GrantReadWrite(role);
+        platform.AssessmentQueue.GrantConsumeMessages(role); // Reads queue to start an assessment
+        platform.AssessmentQueue.GrantSendMessages(role); // Sends messages to queue to start a new assessment
+        platform.DocumentQueue.GrantConsumeMessages(role); // Reads queue to start a document analysis
+        platform.DocumentQueue.GrantSendMessages(role); // Sends messages to queue to start a new document analysis
+        platform.DocumentsBucket.GrantReadWrite(role); // Reads and writes documents to S3
 
-        // A "us.xxx" model ID is an inference profile: the call needs the profile and the
-        // foundation model it routes to, in whichever region it picks.
-        var baseModelId = System.Text.RegularExpressions.Regex.Replace(settings.AssessmentModelId, @"^(us|eu|apac|global)\.", "");
+        // A "us.xxx" model ID is an inference profile.
+        // The call needs the profile and the foundation model it routes to, in whichever region it picks.
+        var baseModelId = System.Text.RegularExpressions.Regex.Replace(settings.AssessmentModelId, @"^(us|eu|apac|global)\.", ""); // strip the region prefix if present, to get the foundation model ID
         role.GrantPrincipal.AddToPrincipalPolicy(new PolicyStatement(new PolicyStatementProps
         {
             Actions = ["bedrock:InvokeModel"],
             Resources =
             [
-                $"arn:aws:bedrock:*::foundation-model/{baseModelId}",
-                $"arn:aws:bedrock:{Region}:{Account}:inference-profile/{settings.AssessmentModelId}",
-                $"arn:aws:bedrock:{Region}::foundation-model/{InfraSettings.EmbeddingModelId}",
+                $"arn:aws:bedrock:*::foundation-model/{baseModelId}", // the foundation model that the inference profile routes to, in whichever region it picks
+                $"arn:aws:bedrock:{Region}:{Account}:inference-profile/{settings.AssessmentModelId}", // the inference profile, in this account and region
+                $"arn:aws:bedrock:{Region}::foundation-model/{InfraSettings.EmbeddingModelId}", // the embedding model, in this region
             ],
         }));
 
@@ -202,8 +220,10 @@ public class ServicesStack : Stack
         {
             Actions =
             [
-                "textract:StartDocumentTextDetection", "textract:GetDocumentTextDetection",
-                "textract:StartDocumentAnalysis", "textract:GetDocumentAnalysis",
+                "textract:StartDocumentTextDetection", 
+                "textract:GetDocumentTextDetection",
+                "textract:StartDocumentAnalysis", 
+                "textract:GetDocumentAnalysis",
             ],
             Resources = ["*"],
         }));
